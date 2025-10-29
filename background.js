@@ -112,8 +112,121 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           target: { tabId, allFrames: true },
           func: (formData) => {
             // --- filler runs inside the webpage ---
-            function trigger(el, type) {
-              el.dispatchEvent(new Event(type, { bubbles: true }));
+            const inputSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype,
+              "value"
+            )?.set;
+            const textareaSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLTextAreaElement.prototype,
+              "value"
+            )?.set;
+
+            function fire(el, type, opts = {}) {
+              const common = { bubbles: true, cancelable: true, composed: true, ...opts };
+              let ev;
+              if (type === "input") {
+                try {
+                  ev = new InputEvent("input", common);
+                } catch (_) {
+                  ev = new Event("input", common);
+                }
+              } else if (type.startsWith("key")) {
+                ev = new KeyboardEvent(type, { key: opts.key || "", ...common });
+              } else if (["click","mousedown","mouseup","mouseover"].includes(type)) {
+                ev = new MouseEvent(type, common);
+              } else {
+                ev = new Event(type, common);
+              }
+              try { el.dispatchEvent(ev); } catch (_) {}
+            }
+
+            function focusAndSelect(el) {
+              try { el.focus({ preventScroll: true }); } catch (_) { try { el.focus(); } catch (_) {} }
+              try {
+                if (typeof el.select === "function") el.select();
+              } catch (_) {}
+            }
+
+            function setTextLike(el, value) {
+              const text = String(value ?? "");
+              focusAndSelect(el);
+              // Clear existing value using native setter where possible
+              if (el.tagName?.toLowerCase() === "textarea" && textareaSetter) {
+                textareaSetter.call(el, "");
+              } else if (el.tagName?.toLowerCase() === "input" && inputSetter) {
+                inputSetter.call(el, "");
+              } else if (el.isContentEditable) {
+                try { document.execCommand("selectAll", false); document.execCommand("delete", false); } catch (_) { el.textContent = ""; }
+              } else {
+                el.value = "";
+              }
+              fire(el, "input", { data: "", inputType: "deleteContent" });
+
+              // Type character-by-character to mimic a real user
+              let current = "";
+              for (const ch of text) {
+                // keydown / keypress
+                fire(el, "keydown", { key: ch });
+                fire(el, "keypress", { key: ch });
+                // beforeinput + set via native setter
+                try { fire(el, "beforeinput", { data: ch, inputType: "insertText" }); } catch (_) {}
+                current += ch;
+                if (el.tagName?.toLowerCase() === "textarea" && textareaSetter) {
+                  textareaSetter.call(el, current);
+                } else if (el.tagName?.toLowerCase() === "input" && inputSetter) {
+                  inputSetter.call(el, current);
+                } else if (el.isContentEditable) {
+                  try { document.execCommand("insertText", false, ch); } catch (_) { el.textContent = current; }
+                } else {
+                  el.value = current;
+                }
+                // input + keyup
+                fire(el, "input", { data: ch, inputType: "insertText" });
+                fire(el, "keyup", { key: ch });
+              }
+              // Finalize
+              fire(el, "change");
+              fire(el, "blur");
+            }
+
+            function setCheckboxRadio(el, value) {
+              const want = !!value;
+              if (el.type?.toLowerCase() === "radio") {
+                if (!el.checked) {
+                  fire(el, "mouseover");
+                  fire(el, "mousedown");
+                  fire(el, "mouseup");
+                  try { el.click(); } catch (_) { el.checked = true; }
+                  fire(el, "change");
+                  fire(el, "blur");
+                }
+                return;
+              }
+              if (el.checked !== want) {
+                fire(el, "mouseover");
+                fire(el, "mousedown");
+                fire(el, "mouseup");
+                try { el.click(); } catch (_) { el.checked = want; }
+                fire(el, "change");
+              }
+              fire(el, "blur");
+            }
+
+            function setSelect(el, value) {
+              let v = value;
+              const opts = Array.from(el.options || []);
+              // Try to match by value first, then by text
+              let match = opts.find(o => o.value == v);
+              if (!match) match = opts.find(o => (o.textContent || "").trim().toLowerCase() === String(v).trim().toLowerCase());
+              if (match) {
+                el.value = match.value;
+                match.selected = true;
+              } else {
+                el.value = v;
+              }
+              fire(el, "input");
+              fire(el, "change");
+              fire(el, "blur");
             }
 
             function setValue(el, value) {
@@ -122,17 +235,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               if (tag === "input") {
                 const t = el.type?.toLowerCase();
                 if (t === "checkbox" || t === "radio") {
-                  el.checked = !!value;
+                  setCheckboxRadio(el, value);
                 } else {
-                  el.value = value;
+                  setTextLike(el, value);
                 }
-              } else if (tag === "textarea" || tag === "select") {
-                el.value = value;
+              } else if (tag === "textarea") {
+                setTextLike(el, value);
+              } else if (tag === "select") {
+                setSelect(el, value);
               } else if (el.isContentEditable) {
-                el.textContent = value;
+                setTextLike(el, value);
+              } else {
+                // Fallback
+                el.value = value;
+                fire(el, "input");
+                fire(el, "change");
+                fire(el, "blur");
               }
-              trigger(el, "input");
-              trigger(el, "change");
             }
 
             const inputs = Array.from(
@@ -182,7 +301,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (pwd) {
               const rePwdInput = inputs.find(
                 (i) =>
-                  (i.name && i.name.toLowerCase().includes("passwordCheck")) ||
+                  (i.name && i.name.toLowerCase().includes("passwordcheck")) ||
                   (i.id && i.id.toLowerCase().includes("ap_password_check")) ||
                   (i.placeholder &&
                     i.placeholder.toLowerCase().includes("confirm"))
@@ -192,6 +311,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 setValue(rePwdInput, pwd);
               }
             }
+
+            // --- AMAZON KDP explicit mapping (best effort) ---
+            try {
+              const host = location.hostname || "";
+              if (host.includes("amazon.") || host.includes("kdp.amazon")) {
+                const nameVal = formData.customerName || formData.name || formData.fullName;
+                if (nameVal) {
+                  const el = document.getElementById("ap_customer_name");
+                  if (el) setValue(el, nameVal);
+                }
+                if (formData.email) {
+                  const el = document.getElementById("ap_email");
+                  if (el) setValue(el, formData.email);
+                }
+                if (pwd) {
+                  const el1 = document.getElementById("ap_password");
+                  const el2 = document.getElementById("ap_password_check");
+                  if (el1) setValue(el1, pwd);
+                  if (el2) setValue(el2, pwd);
+                }
+              }
+            } catch (_) {}
 
             // Do not auto-submit; only fill
             return;
