@@ -1,4 +1,4 @@
-// background.js
+﻿// background.js
 chrome.runtime.onInstalled.addListener(async () => {
   console.log("AutoForm Filler installed");
   try {
@@ -110,7 +110,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Inject a function into the page to fill the form.
         await chrome.scripting.executeScript({
           target: { tabId, allFrames: true },
-          func: (formData) => {
+          func: async (formData) => {
             // --- filler runs inside the webpage ---
             const inputSetter = Object.getOwnPropertyDescriptor(
               window.HTMLInputElement.prototype,
@@ -120,9 +120,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               window.HTMLTextAreaElement.prototype,
               "value"
             )?.set;
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const nextDelay = () => 20 + Math.floor(Math.random() * 41); // 20-60ms
 
             function fire(el, type, opts = {}) {
-              const common = { bubbles: true, cancelable: true, composed: true, ...opts };
+              const common = {
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                ...opts,
+              };
               let ev;
               if (type === "input") {
                 try {
@@ -131,23 +138,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   ev = new Event("input", common);
                 }
               } else if (type.startsWith("key")) {
-                ev = new KeyboardEvent(type, { key: opts.key || "", ...common });
-              } else if (["click","mousedown","mouseup","mouseover"].includes(type)) {
+                ev = new KeyboardEvent(type, {
+                  key: opts.key || "",
+                  ...common,
+                });
+              } else if (
+                ["click", "mousedown", "mouseup", "mouseover"].includes(type)
+              ) {
                 ev = new MouseEvent(type, common);
               } else {
                 ev = new Event(type, common);
               }
-              try { el.dispatchEvent(ev); } catch (_) {}
+              try {
+                el.dispatchEvent(ev);
+              } catch (_) {}
             }
 
             function focusAndSelect(el) {
-              try { el.focus({ preventScroll: true }); } catch (_) { try { el.focus(); } catch (_) {} }
+              try {
+                el.focus({ preventScroll: true });
+              } catch (_) {
+                try {
+                  el.focus();
+                } catch (_) {}
+              }
               try {
                 if (typeof el.select === "function") el.select();
               } catch (_) {}
             }
 
-            function setTextLike(el, value) {
+            async function setTextLike(el, value) {
               const text = String(value ?? "");
               focusAndSelect(el);
               // Clear existing value using native setter where possible
@@ -156,7 +176,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               } else if (el.tagName?.toLowerCase() === "input" && inputSetter) {
                 inputSetter.call(el, "");
               } else if (el.isContentEditable) {
-                try { document.execCommand("selectAll", false); document.execCommand("delete", false); } catch (_) { el.textContent = ""; }
+                try {
+                  document.execCommand("selectAll", false);
+                  document.execCommand("delete", false);
+                } catch (_) {
+                  el.textContent = "";
+                }
               } else {
                 el.value = "";
               }
@@ -169,20 +194,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 fire(el, "keydown", { key: ch });
                 fire(el, "keypress", { key: ch });
                 // beforeinput + set via native setter
-                try { fire(el, "beforeinput", { data: ch, inputType: "insertText" }); } catch (_) {}
+                try {
+                  fire(el, "beforeinput", {
+                    data: ch,
+                    inputType: "insertText",
+                  });
+                } catch (_) {}
                 current += ch;
-                if (el.tagName?.toLowerCase() === "textarea" && textareaSetter) {
+                if (
+                  el.tagName?.toLowerCase() === "textarea" &&
+                  textareaSetter
+                ) {
                   textareaSetter.call(el, current);
-                } else if (el.tagName?.toLowerCase() === "input" && inputSetter) {
+                } else if (
+                  el.tagName?.toLowerCase() === "input" &&
+                  inputSetter
+                ) {
                   inputSetter.call(el, current);
                 } else if (el.isContentEditable) {
-                  try { document.execCommand("insertText", false, ch); } catch (_) { el.textContent = current; }
+                  try {
+                    document.execCommand("insertText", false, ch);
+                  } catch (_) {
+                    el.textContent = current;
+                  }
                 } else {
                   el.value = current;
                 }
                 // input + keyup
                 fire(el, "input", { data: ch, inputType: "insertText" });
                 fire(el, "keyup", { key: ch });
+                await sleep(nextDelay());
               }
               // Finalize
               fire(el, "change");
@@ -196,7 +237,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   fire(el, "mouseover");
                   fire(el, "mousedown");
                   fire(el, "mouseup");
-                  try { el.click(); } catch (_) { el.checked = true; }
+                  try {
+                    el.click();
+                  } catch (_) {
+                    el.checked = true;
+                  }
                   fire(el, "change");
                   fire(el, "blur");
                 }
@@ -206,7 +251,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 fire(el, "mouseover");
                 fire(el, "mousedown");
                 fire(el, "mouseup");
-                try { el.click(); } catch (_) { el.checked = want; }
+                try {
+                  el.click();
+                } catch (_) {
+                  el.checked = want;
+                }
                 fire(el, "change");
               }
               fire(el, "blur");
@@ -216,8 +265,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               let v = value;
               const opts = Array.from(el.options || []);
               // Try to match by value first, then by text
-              let match = opts.find(o => o.value == v);
-              if (!match) match = opts.find(o => (o.textContent || "").trim().toLowerCase() === String(v).trim().toLowerCase());
+              let match = opts.find((o) => o.value == v);
+              if (!match)
+                match = opts.find(
+                  (o) =>
+                    (o.textContent || "").trim().toLowerCase() ===
+                    String(v).trim().toLowerCase()
+                );
               if (match) {
                 el.value = match.value;
                 match.selected = true;
@@ -229,7 +283,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               fire(el, "blur");
             }
 
-            function setValue(el, value) {
+            async function setValue(el, value) {
               if (!el) return;
               const tag = el.tagName?.toLowerCase();
               if (tag === "input") {
@@ -237,14 +291,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 if (t === "checkbox" || t === "radio") {
                   setCheckboxRadio(el, value);
                 } else {
-                  setTextLike(el, value);
+                  await setTextLike(el, value);
                 }
               } else if (tag === "textarea") {
-                setTextLike(el, value);
+                await setTextLike(el, value);
               } else if (tag === "select") {
                 setSelect(el, value);
               } else if (el.isContentEditable) {
-                setTextLike(el, value);
+                await setTextLike(el, value);
               } else {
                 // Fallback
                 el.value = value;
@@ -253,6 +307,62 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 fire(el, "blur");
               }
             }
+
+            // Amazon KDP registration form (inputs only): name, email, password, re-enter password
+            try {
+              const regForm = document.getElementById("ap_register_form");
+              if (regForm) {
+                const nameVal =
+                  formData.customerName || formData.name || formData.fullName;
+                const emailVal =
+                  formData.email || formData.username || formData.user || "";
+                const pwdVal =
+                  formData.password || formData.pass || formData.pwd || "";
+
+                if (nameVal) {
+                  const el = document.getElementById("ap_customer_name");
+                  if (el) await setTextLike(el, nameVal);
+                }
+                if (emailVal) {
+                  const el = document.getElementById("ap_email");
+                  if (el) await setTextLike(el, emailVal);
+                }
+                if (pwdVal) {
+                  const el1 = document.getElementById("ap_password");
+                  const el2 = document.getElementById("ap_password_check");
+                  if (el1) await setTextLike(el1, pwdVal);
+                  if (el2) await setTextLike(el2, pwdVal);
+                }
+                // Auto-submit after short delay so validation settles
+                setTimeout(() => {
+                  try {
+                    const submitEl = document.getElementById("continue");
+                    if (
+                      regForm &&
+                      typeof regForm.requestSubmit === "function"
+                    ) {
+                      if (
+                        submitEl &&
+                        submitEl.tagName &&
+                        submitEl.tagName.toLowerCase() === "button"
+                      ) {
+                        regForm.requestSubmit(submitEl);
+                      } else {
+                        regForm.requestSubmit();
+                      }
+                    } else if (submitEl) {
+                      submitEl.click();
+                    } else {
+                      const btn = regForm.querySelector(
+                        'button[type="submit"], input[type="submit"]'
+                      );
+                      btn && btn.click();
+                    }
+                  } catch (_) {}
+                }, 350);
+                return;
+              }
+            } catch (_) {}
 
             const inputs = Array.from(
               document.querySelectorAll("input, textarea, select")
@@ -264,10 +374,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               const keyLower = key.toLowerCase();
               let el = null;
 
-              // 1️⃣ exact match by name/id
+              // 1ï¸âƒ£ exact match by name/id
               el = document.querySelector(`[name="${key}"], #${key}`);
               if (!el) {
-                // 2️⃣ partial match by name/id
+                // 2ï¸âƒ£ partial match by name/id
                 el = inputs.find(
                   (i) =>
                     (i.name && i.name.toLowerCase().includes(keyLower)) ||
@@ -275,7 +385,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 );
               }
 
-              // 3️⃣ placeholder or label includes key
+              // 3ï¸âƒ£ placeholder or label includes key
               if (!el) {
                 el = inputs.find((i) => {
                   const ph = (i.placeholder || "").toLowerCase();
@@ -289,8 +399,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               }
 
               if (el) {
-                console.log(`Filling ${key} → ${val}`);
-                setValue(el, val);
+                console.log(`Filling ${key} â†’ ${val}`);
+                await setValue(el, val);
               } else {
                 console.log(`No match for key: ${key}`);
               }
@@ -308,7 +418,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               );
               if (rePwdInput) {
                 console.log("Filling re-enter password field");
-                setValue(rePwdInput, pwd);
+                await setValue(rePwdInput, pwd);
               }
             }
 
@@ -316,26 +426,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
               const host = location.hostname || "";
               if (host.includes("amazon.") || host.includes("kdp.amazon")) {
-                const nameVal = formData.customerName || formData.name || formData.fullName;
+                const nameVal =
+                  formData.customerName || formData.name || formData.fullName;
                 if (nameVal) {
                   const el = document.getElementById("ap_customer_name");
-                  if (el) setValue(el, nameVal);
+                  if (el) await setValue(el, nameVal);
                 }
                 if (formData.email) {
                   const el = document.getElementById("ap_email");
-                  if (el) setValue(el, formData.email);
+                  if (el) await setValue(el, formData.email);
                 }
                 if (pwd) {
                   const el1 = document.getElementById("ap_password");
                   const el2 = document.getElementById("ap_password_check");
-                  if (el1) setValue(el1, pwd);
-                  if (el2) setValue(el2, pwd);
+                  if (el1) await setValue(el1, pwd);
+                  if (el2) await setValue(el2, pwd);
                 }
               }
             } catch (_) {}
 
-            // Do not auto-submit; only fill
-            return;
+            // Continue to generic submit logic below as fallback
 
             // --- CLICK continue/submit button ---
             function visible(el) {
@@ -469,31 +579,194 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         await chrome.scripting.executeScript({
-          target: { tabId },
-          func: (data) => {
-            function trigger(el, type) {
+          target: { tabId, allFrames: true },
+          func: async (data) => {
+            const inputSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype,
+              "value"
+            )?.set;
+            const textareaSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLTextAreaElement.prototype,
+              "value"
+            )?.set;
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const nextDelay = () => 20 + Math.floor(Math.random() * 41); // 20-60ms
+
+            function fire(el, type, opts = {}) {
               try {
-                el.dispatchEvent(new Event(type, { bubbles: true }));
+                const common = {
+                  bubbles: true,
+                  cancelable: true,
+                  composed: true,
+                  ...opts,
+                };
+                let ev;
+                if (type === "input") {
+                  try {
+                    ev = new InputEvent("input", common);
+                  } catch (_) {
+                    ev = new Event("input", common);
+                  }
+                } else if (
+                  ["click", "mousedown", "mouseup", "mouseover"].includes(type)
+                ) {
+                  ev = new MouseEvent(type, common);
+                } else if (type.startsWith("key")) {
+                  ev = new KeyboardEvent(type, {
+                    key: opts.key || "",
+                    ...common,
+                  });
+                } else {
+                  ev = new Event(type, common);
+                }
+                el.dispatchEvent(ev);
               } catch (_) {}
             }
-            function setValue(el, value) {
+
+            function focusAndSelect(el) {
+              try {
+                el.focus({ preventScroll: true });
+              } catch (_) {
+                try {
+                  el.focus();
+                } catch (_) {}
+              }
+              try {
+                if (typeof el.select === "function") el.select();
+              } catch (_) {}
+            }
+
+            async function setTextLike(el, value) {
+              const text = String(value ?? "");
+              focusAndSelect(el);
+              if (el.tagName?.toLowerCase() === "textarea" && textareaSetter) {
+                textareaSetter.call(el, "");
+              } else if (el.tagName?.toLowerCase() === "input" && inputSetter) {
+                inputSetter.call(el, "");
+              } else if (el.isContentEditable) {
+                try {
+                  document.execCommand("selectAll", false);
+                  document.execCommand("delete", false);
+                } catch (_) {
+                  el.textContent = "";
+                }
+              } else {
+                el.value = "";
+              }
+              fire(el, "input", { data: "", inputType: "deleteContent" });
+
+              let current = "";
+              for (const ch of text) {
+                fire(el, "keydown", { key: ch });
+                fire(el, "keypress", { key: ch });
+                try {
+                  fire(el, "beforeinput", {
+                    data: ch,
+                    inputType: "insertText",
+                  });
+                } catch (_) {}
+                current += ch;
+                if (
+                  el.tagName?.toLowerCase() === "textarea" &&
+                  textareaSetter
+                ) {
+                  textareaSetter.call(el, current);
+                } else if (
+                  el.tagName?.toLowerCase() === "input" &&
+                  inputSetter
+                ) {
+                  inputSetter.call(el, current);
+                } else if (el.isContentEditable) {
+                  try {
+                    document.execCommand("insertText", false, ch);
+                  } catch (_) {
+                    el.textContent = current;
+                  }
+                } else {
+                  el.value = current;
+                }
+                fire(el, "input", { data: ch, inputType: "insertText" });
+                fire(el, "keyup", { key: ch });
+                await sleep(nextDelay());
+              }
+              fire(el, "change");
+              fire(el, "blur");
+            }
+
+            function setCheckboxRadio(el, value) {
+              const want = !!value;
+              if (el.type?.toLowerCase() === "radio") {
+                if (!el.checked) {
+                  fire(el, "mouseover");
+                  fire(el, "mousedown");
+                  fire(el, "mouseup");
+                  try {
+                    el.click();
+                  } catch (_) {
+                    el.checked = true;
+                  }
+                  fire(el, "change");
+                  fire(el, "blur");
+                }
+                return;
+              }
+              if (el.checked !== want) {
+                fire(el, "mouseover");
+                fire(el, "mousedown");
+                fire(el, "mouseup");
+                try {
+                  el.click();
+                } catch (_) {
+                  el.checked = want;
+                }
+                fire(el, "change");
+              }
+              fire(el, "blur");
+            }
+
+            function setSelect(el, value) {
+              let v = value;
+              const opts = Array.from(el.options || []);
+              let match = opts.find((o) => o.value == v);
+              if (!match)
+                match = opts.find(
+                  (o) =>
+                    (o.textContent || "").trim().toLowerCase() ===
+                    String(v).trim().toLowerCase()
+                );
+              if (match) {
+                el.value = match.value;
+                match.selected = true;
+              } else {
+                el.value = v;
+              }
+              fire(el, "input");
+              fire(el, "change");
+              fire(el, "blur");
+            }
+
+            async function setValue(el, value) {
               if (!el) return;
               const tag = el.tagName?.toLowerCase();
               if (tag === "input") {
                 const t = el.type?.toLowerCase();
                 if (t === "checkbox" || t === "radio") {
-                  el.checked = !!value;
+                  setCheckboxRadio(el, value);
                 } else {
-                  el.value = value;
+                  await setTextLike(el, value);
                 }
-              } else if (tag === "textarea" || tag === "select") {
-                el.value = value;
+              } else if (tag === "textarea") {
+                await setTextLike(el, value);
+              } else if (tag === "select") {
+                setSelect(el, value);
               } else if (el.isContentEditable) {
-                el.textContent = value;
+                await setTextLike(el, value);
+              } else {
+                el.value = value;
+                fire(el, "input");
+                fire(el, "change");
+                fire(el, "blur");
               }
-              trigger(el, "input");
-              trigger(el, "change");
-              trigger(el, "blur");
             }
 
             function findByKey(keywords) {
@@ -535,7 +808,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // Full Name
             const fullNameEl = findByKey(["full name", "name", "legal name"]);
             if (fullNameEl && data.fullName)
-              setValue(fullNameEl, data.fullName);
+              await setValue(fullNameEl, data.fullName);
 
             // Address lines
             const addr1El =
@@ -548,11 +821,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 "street",
                 "address",
               ]);
-            if (addr1El && data.address1) setValue(addr1El, data.address1);
+            if (addr1El && data.address1)
+              await setValue(addr1El, data.address1);
 
             // City
             const cityEl = findByKey(["city", "town", "kota"]);
-            if (cityEl && data.city) setValue(cityEl, data.city);
+            if (cityEl && data.city) await setValue(cityEl, data.city);
 
             // State / Province / Region
             const stateEl = findByKey([
@@ -562,7 +836,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               "state/province/region",
               "provinsi",
             ]);
-            if (stateEl && data.state) setValue(stateEl, data.state);
+            if (stateEl && data.state) await setValue(stateEl, data.state);
 
             // Postal / ZIP
             const postalEl = findByKey([
@@ -572,7 +846,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               "kode pos",
             ]);
             if (postalEl && data.postalCode)
-              setValue(postalEl, data.postalCode);
+              await setValue(postalEl, data.postalCode);
 
             // Country (ideally a select)
             // Custom combobox for country (e.g., mdn select)
@@ -611,7 +885,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             // Phone
             const phoneEl = findByKey(["phone", "mobile", "telepon", "hp"]);
-            if (phoneEl && data.phone) setValue(phoneEl, data.phone);
+            if (phoneEl && data.phone) await setValue(phoneEl, data.phone);
 
             if ((countryEl || countryCombo) && data.country) {
               if (countryEl && countryEl.tagName?.toLowerCase() === "select") {
@@ -735,12 +1009,85 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const { tabId, data } = message;
 
         await chrome.scripting.executeScript({
-          target: { tabId },
-          func: (formData) => {
+          target: { tabId, allFrames: true },
+          func: async (formData) => {
             function trigger(el, type) {
               el.dispatchEvent(new Event(type, { bubbles: true }));
             }
 
+            const inputSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype,
+              "value"
+            )?.set;
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const nextDelay = () => 20 + Math.floor(Math.random() * 41); // 20-60ms
+            function fire(el, type, opts = {}) {
+              const common = {
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                ...opts,
+              };
+              let ev;
+              if (type === "input") {
+                try {
+                  ev = new InputEvent("input", common);
+                } catch (_) {
+                  ev = new Event("input", common);
+                }
+              } else if (
+                ["click", "mousedown", "mouseup", "mouseover"].includes(type)
+              ) {
+                ev = new MouseEvent(type, common);
+              } else if (type.startsWith("key")) {
+                ev = new KeyboardEvent(type, {
+                  key: opts.key || "",
+                  ...common,
+                });
+              } else {
+                ev = new Event(type, common);
+              }
+              try {
+                el.dispatchEvent(ev);
+              } catch (_) {}
+            }
+            function focusAndSelect(el) {
+              try {
+                el.focus({ preventScroll: true });
+              } catch (_) {
+                try {
+                  el.focus();
+                } catch (_) {}
+              }
+              try {
+                if (typeof el.select === "function") el.select();
+              } catch (_) {}
+            }
+            async function typeInto(el, text) {
+              focusAndSelect(el);
+              if (inputSetter) inputSetter.call(el, "");
+              else el.value = "";
+              fire(el, "input", { data: "", inputType: "deleteContent" });
+              let current = "";
+              for (const ch of String(text ?? "")) {
+                fire(el, "keydown", { key: ch });
+                fire(el, "keypress", { key: ch });
+                try {
+                  fire(el, "beforeinput", {
+                    data: ch,
+                    inputType: "insertText",
+                  });
+                } catch (_) {}
+                current += ch;
+                if (inputSetter) inputSetter.call(el, current);
+                else el.value = current;
+                fire(el, "input", { data: ch, inputType: "insertText" });
+                fire(el, "keyup", { key: ch });
+                await sleep(nextDelay());
+              }
+              fire(el, "change");
+              fire(el, "blur");
+            }
             function setValue(el, value) {
               if (!el) return;
               el.value = value;
@@ -750,7 +1097,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             const { country, number, countryCode } = formData;
 
-            // 1️⃣ Select Country
+            // 1ï¸âƒ£ Select Country
             const selects = Array.from(document.querySelectorAll("select"));
             for (const select of selects) {
               const options = Array.from(select.options);
@@ -765,52 +1112,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               if (match) {
                 select.value = match.value;
                 trigger(select, "change");
-                console.log("✅ Selected country:", match.textContent);
+                console.log("âœ… Selected country:", match.textContent);
                 break;
               }
             }
 
-            // 2️⃣ Fill Phone Number
+            // 2ï¸âƒ£ Fill Phone Number
             const phoneInput = document.querySelector(
               'input[name*="phone"], input[id*="phone"], input[placeholder*="phone"], input[type="tel"]'
             );
 
             if (phoneInput) {
-              setValue(phoneInput, number);
-              console.log("✅ Filled phone:", number);
+              await typeInto(phoneInput, number);
+              console.log("âœ… Filled phone:", number);
             } else {
-              console.warn("⚠️ Phone input not found");
+              console.warn("âš ï¸ Phone input not found");
             }
 
-            // 3️⃣ Click Continue / Collect / Submit Button
-            const continueBtn =
-              document.getElementById("continue") ||
-              document.querySelector('input[name="cvf_action"]') || // <-- added for your case
-              Array.from(
-                document.querySelectorAll("button, input[type='submit']")
-              ).find(
-                (b) =>
-                  (b.id && b.id.toLowerCase().includes("continue")) ||
-                  (b.name && b.name.toLowerCase().includes("continue")) ||
-                  (b.value &&
-                    ["continue", "next", "submit", "collect"].some((val) =>
-                      b.value.toLowerCase().includes(val)
-                    )) ||
-                  (b.textContent &&
-                    ["continue", "next", "submit", "collect"].some((val) =>
-                      b.textContent.toLowerCase().includes(val)
-                    ))
-              );
-
-            if (continueBtn) {
-              console.log(
-                "✅ Clicking button:",
-                continueBtn.value || continueBtn.textContent
-              );
-              setTimeout(() => continueBtn.click(), 600);
-            } else {
-              console.warn("⚠️ Continue/Collect button not found");
-            }
+            // Do not auto-click; user submits manually
           },
           args: [data],
         });
@@ -823,53 +1142,91 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const { tabId, data } = message;
 
         await chrome.scripting.executeScript({
-          target: { tabId },
-          func: (formData) => {
+          target: { tabId, allFrames: true },
+          func: async (formData) => {
             const { code } = formData;
-
-            function trigger(el, type) {
-              el.dispatchEvent(new Event(type, { bubbles: true }));
+            const inputSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype,
+              "value"
+            )?.set;
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const nextDelay = () => 20 + Math.floor(Math.random() * 41); // 20-60ms
+            function fire(el, type, opts = {}) {
+              const common = {
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                ...opts,
+              };
+              let ev;
+              if (type === "input") {
+                try {
+                  ev = new InputEvent("input", common);
+                } catch (_) {
+                  ev = new Event("input", common);
+                }
+              } else if (
+                ["click", "mousedown", "mouseup", "mouseover"].includes(type)
+              ) {
+                ev = new MouseEvent(type, common);
+              } else if (type.startsWith("key")) {
+                ev = new KeyboardEvent(type, {
+                  key: opts.key || "",
+                  ...common,
+                });
+              } else {
+                ev = new Event(type, common);
+              }
+              try {
+                el.dispatchEvent(ev);
+              } catch (_) {}
+            }
+            function focusAndSelect(el) {
+              try {
+                el.focus({ preventScroll: true });
+              } catch (_) {
+                try {
+                  el.focus();
+                } catch (_) {}
+              }
+              try {
+                if (typeof el.select === "function") el.select();
+              } catch (_) {}
+            }
+            async function typeInto(el, text) {
+              focusAndSelect(el);
+              if (inputSetter) inputSetter.call(el, "");
+              else el.value = "";
+              fire(el, "input", { data: "", inputType: "deleteContent" });
+              let current = "";
+              for (const ch of String(text ?? "")) {
+                fire(el, "keydown", { key: ch });
+                fire(el, "keypress", { key: ch });
+                try {
+                  fire(el, "beforeinput", {
+                    data: ch,
+                    inputType: "insertText",
+                  });
+                } catch (_) {}
+                current += ch;
+                if (inputSetter) inputSetter.call(el, current);
+                else el.value = current;
+                fire(el, "input", { data: ch, inputType: "insertText" });
+                fire(el, "keyup", { key: ch });
+                await sleep(nextDelay());
+              }
+              fire(el, "change");
+              fire(el, "blur");
             }
 
-            function setValue(el, value) {
-              if (!el) return;
-              el.value = value;
-              trigger(el, "input");
-              trigger(el, "change");
-            }
-
-            // 1️⃣ Fill code input field
             const codeInput = document.querySelector(
               'input[name*="code"], input[id*="code"], input[placeholder*="code"]'
             );
-
             if (codeInput) {
-              setValue(codeInput, code);
-              console.log("✅ Filled code:", code);
+              await typeInto(codeInput, code);
+              console.log("Filled code:", code);
             } else {
-              console.warn("⚠️ Code input not found!");
-            }
-
-            // 2️⃣ Click the verify button after short delay
-            const verifyBtn =
-              document.querySelector(
-                'input[name="cvf_action"][value="code"]'
-              ) ||
-              Array.from(
-                document.querySelectorAll('input[type="submit"], button')
-              ).find(
-                (el) =>
-                  (el.name && el.name.toLowerCase().includes("cvf_action")) ||
-                  (el.ariaLabel &&
-                    el.ariaLabel.toLowerCase().includes("verify otp")) ||
-                  (el.value && el.value.toLowerCase().includes("code"))
-              );
-
-            if (verifyBtn) {
-              console.log("✅ Clicking verify OTP button...");
-              setTimeout(() => verifyBtn.click(), 600); // wait for input to update
-            } else {
-              console.warn("⚠️ Verify OTP button not found!");
+              console.warn("Code input not found!");
             }
           },
           args: [data],
