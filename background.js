@@ -1,4 +1,4 @@
-﻿// background.js
+// background.js
 chrome.runtime.onInstalled.addListener(async () => {
   console.log("AutoForm Filler installed");
   try {
@@ -356,7 +356,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                       const btn = regForm.querySelector(
                         'button[type="submit"], input[type="submit"]'
                       );
-                      btn && btn.click();
+                      if (btn) btn.click();
                     }
                   } catch (_) {}
                 }, 350);
@@ -445,7 +445,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               }
             } catch (_) {}
 
-            // Continue to generic submit logic below as fallback
+            // Do not auto-submit; only fill
+            return;
 
             // --- CLICK continue/submit button ---
             function visible(el) {
