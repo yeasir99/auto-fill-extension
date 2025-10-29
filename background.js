@@ -770,6 +770,176 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               }
             }
 
+            // Explicit serial fill for MDN identity form (legal name, country, postal, state, city, addr1, addr2, dob, phone)
+            try {
+              const form =
+                document.getElementById("identity-form") ||
+                document.querySelector("form#identity-form") ||
+                document.querySelector("form");
+              // 1) Full name
+              const fullNameEl =
+                document.getElementById("identity-form-full-name") ||
+                document.querySelector(
+                  'input[data-testid="identity-form-full-name"]'
+                ) ||
+                document.querySelector('input[name="fullName"]');
+              if (fullNameEl && data.fullName)
+                await setTextLike(fullNameEl, data.fullName);
+
+              // 2) Country (custom combobox)
+              const countryBox = document.querySelector(
+                '[data-testid="identity-form-country"] input[role="combobox"]'
+              );
+              if (countryBox && (data.country || data.countryCode)) {
+                const wantName = String(data.country || "").toLowerCase();
+                const wantCode = String(data.countryCode || "").toLowerCase();
+                // open and type
+                try {
+                  countryBox.click();
+                } catch (_) {}
+                countryBox.value = "";
+                fire(countryBox, "input");
+                if (wantName) {
+                  countryBox.value = data.country;
+                  fire(countryBox, "input");
+                }
+                const listId = countryBox.getAttribute("aria-controls");
+                const list = listId
+                  ? document.getElementById(listId)
+                  : document.querySelector('[role="listbox"]');
+                if (list) {
+                  const opts = Array.from(
+                    list.querySelectorAll('[role="option"], li, div')
+                  );
+                  const pick =
+                    opts.find((o) => {
+                      const t = (o.textContent || "").toLowerCase();
+                      return (
+                        (wantName && t.includes(wantName)) ||
+                        (wantCode && t.includes(wantCode))
+                      );
+                    }) || opts[0];
+                  if (pick) {
+                    pick.click();
+                    fire(countryBox, "change");
+                    try {
+                      countryBox.blur();
+                    } catch (_) {}
+                  }
+                }
+              }
+
+              // 3) Postal code
+              const postalEl =
+                document.getElementById("identity-form-postal-code") ||
+                document.querySelector(
+                  'input[data-testid="identity-form-postal-code"]'
+                ) ||
+                document.querySelector('input[name="address.postalCode"]');
+              if (postalEl && data.postalCode)
+                await setTextLike(postalEl, data.postalCode);
+
+              // 4) State/Province/Region
+              const stateEl =
+                document.querySelector(
+                  'input[data-testid="identity-form-state-or-region"]'
+                ) ||
+                document.querySelector('input[name="address.stateOrRegion"]');
+              if (stateEl && data.state) await setTextLike(stateEl, data.state);
+
+              // 5) City
+              const cityEl =
+                document.getElementById("identity-form-city") ||
+                document.querySelector(
+                  'input[data-testid="identity-form-city"]'
+                ) ||
+                document.querySelector('input[name="address.city"]');
+              if (cityEl && data.city) await setTextLike(cityEl, data.city);
+
+              // 6) Address Line 1
+              const addr1El =
+                document.getElementById("identity-form-address-line-1") ||
+                document.querySelector(
+                  'input[data-testid="identity-form-address-line-1"]'
+                ) ||
+                document.querySelector('input[name="address.addressLine1"]');
+              if (addr1El && data.address1)
+                await setTextLike(addr1El, data.address1);
+
+              // 7) Address Line 2 (optional)
+              const addr2El =
+                document.getElementById("identity-form-address-line-2") ||
+                document.querySelector(
+                  'input[data-testid="identity-form-address-line-2"]'
+                ) ||
+                document.querySelector('input[name="address.addressLine2"]');
+              if (addr2El && data.address2)
+                await setTextLike(addr2El, data.address2);
+
+              // 8) DOB
+              const dobEl =
+                document.getElementById("dateinputfield-6") ||
+                document.querySelector(
+                  'input[data-testid="identity-form-dob"]'
+                );
+              if (dobEl && data.dob) await setTextLike(dobEl, data.dob);
+
+              // 9) Phone number
+              const phoneEl =
+                document.querySelector(
+                  'input[data-testid="identity-form-phone-number"]'
+                ) ||
+                document.querySelector(
+                  'input[name="otherDetails.phoneDetails.phoneNumber"]'
+                );
+              if (phoneEl && data.phone) await setTextLike(phoneEl, data.phone);
+
+              // Auto-submit: prefer "Save & Continue"
+              setTimeout(() => {
+                try {
+                  const candidates = Array.from(
+                    document.querySelectorAll(
+                      'button, input[type="submit"], a[role="button"]'
+                    )
+                  );
+                  const norm = (t) => (t || "").toLowerCase();
+                  const btn =
+                    candidates.find((b) => {
+                      const txt =
+                        norm(b.textContent) +
+                        " " +
+                        norm(b.value) +
+                        " " +
+                        norm(b.ariaLabel || b.getAttribute?.("aria-label"));
+                      return (
+                        txt.includes("save & continue") ||
+                        txt.includes("save and continue")
+                      );
+                    }) ||
+                    candidates.find((b) => {
+                      const txt =
+                        norm(b.textContent) +
+                        " " +
+                        norm(b.value) +
+                        " " +
+                        norm(b.ariaLabel || b.getAttribute?.("aria-label"));
+                      return txt.includes("save");
+                    });
+                  if (!btn) return;
+                  const f = btn.closest && btn.closest("form");
+                  if (f && typeof f.requestSubmit === "function") {
+                    if (btn.tagName && btn.tagName.toLowerCase() === "button")
+                      f.requestSubmit(btn);
+                    else f.requestSubmit();
+                  } else {
+                    btn.click();
+                  }
+                } catch (_) {}
+              }, 350);
+
+              return;
+            } catch (_) {}
+
             function findByKey(keywords) {
               const inputs = Array.from(
                 document.querySelectorAll("input, select, textarea")
@@ -909,7 +1079,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 if (!matched)
                   countryEl.value =
                     countryEl.value || countryEl.options?.[0]?.value;
-                trigger(countryEl, "change");
+                fire(countryEl, "change");
               } else if (countryCombo) {
                 const label = data.country;
                 const tryPick = () => {
@@ -937,7 +1107,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   });
                   if (opt) {
                     opt.click();
-                    trigger(countryCombo, "change");
+                    fire(countryCombo, "change");
                     countryCombo.blur();
                     return true;
                   }
@@ -947,9 +1117,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 countryCombo.focus();
                 countryCombo.click();
                 countryCombo.value = "";
-                trigger(countryCombo, "input");
+                fire(countryCombo, "input");
                 countryCombo.value = label;
-                trigger(countryCombo, "input");
+                fire(countryCombo, "input");
                 setTimeout(() => {
                   if (!tryPick()) {
                     // try opening again and picking by code
