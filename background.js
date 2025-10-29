@@ -109,7 +109,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Inject a function into the page to fill the form.
         await chrome.scripting.executeScript({
-          target: { tabId },
+          target: { tabId, allFrames: true },
           func: (formData) => {
             // --- filler runs inside the webpage ---
             function trigger(el, type) {
@@ -193,27 +193,126 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               }
             }
 
-            // --- CLICK continue/submit button ---
-            // const continueBtn =
-            //   document.getElementById("continue") ||
-            //   Array.from(
-            //     document.querySelectorAll('button, input[type="submit"]')
-            //   ).find(
-            //     (b) =>
-            //       (b.id && b.id.toLowerCase().includes("continue")) ||
-            //       (b.textContent &&
-            //         b.textContent.toLowerCase().includes("continue")) ||
-            //       (b.value && b.value.toLowerCase().includes("continue")) ||
-            //       (b.textContent &&
-            //         b.textContent.toLowerCase().includes("submit"))
-            //   );
+            // Do not auto-submit; only fill
+            return;
 
-            // if (continueBtn) {
-            //   console.log("Clicking continue button...");
-            //   continueBtn.click();
-            // } else {
-            //   console.log("Continue button not found.");
-            // }
+            // --- CLICK continue/submit button ---
+            function visible(el) {
+              if (!el) return false;
+              const style = window.getComputedStyle(el);
+              return (
+                style.visibility !== "hidden" &&
+                style.display !== "none" &&
+                el.offsetParent !== null
+              );
+            }
+
+            function findSubmitLike() {
+              const explicitSelectors = [
+                "#signInSubmit",
+                "#continue",
+                "input#continue",
+                "input#signInSubmit",
+                "button#continue",
+                "button#signInSubmit",
+                'input[name="signInSubmit"]',
+                'input[name="continue"]',
+              ];
+              for (const sel of explicitSelectors) {
+                const el = document.querySelector(sel);
+                if (visible(el)) return el;
+              }
+
+              const buttons = Array.from(
+                document.querySelectorAll(
+                  'button, input[type="submit"], input[type="button"], a[role="button"], div[role="button"], span[role="button"]'
+                )
+              ).filter(visible);
+              const keywords = [
+                "continue",
+                "submit",
+                "sign in",
+                "signin",
+                "log in",
+                "login",
+                "next",
+                "save",
+                "confirm",
+                "proceed",
+              ];
+              let el =
+                document.getElementById("continue") ||
+                document.getElementById("submit") ||
+                document.getElementById("signInSubmit");
+              if (visible(el)) return el;
+              const norm = (s) => (s || "").toLowerCase().trim();
+              const hasKeyword = (s) =>
+                keywords.some((k) => norm(s).includes(k));
+              el = buttons.find(
+                (b) =>
+                  hasKeyword(b.id) ||
+                  hasKeyword(b.value) ||
+                  hasKeyword(b.textContent) ||
+                  hasKeyword(b.getAttribute && b.getAttribute("aria-label"))
+              );
+              if (visible(el)) return el;
+              el = document.querySelector(
+                'button[type="submit"], input[type="submit"]'
+              );
+              if (visible(el)) return el;
+              return buttons[0] || null;
+            }
+
+            function realClick(el) {
+              try {
+                el.scrollIntoView({ block: "center", behavior: "instant" });
+              } catch (_) {}
+              const ev = (type) =>
+                new MouseEvent(type, {
+                  bubbles: true,
+                  cancelable: true,
+                  view: window,
+                });
+              el.dispatchEvent(ev("mouseover"));
+              el.dispatchEvent(ev("mousedown"));
+              el.dispatchEvent(ev("mouseup"));
+              el.dispatchEvent(ev("click"));
+            }
+
+            function attemptSubmit(maxAttempts = 12, delay = 250) {
+              let tries = 0;
+              const tick = () => {
+                const el = findSubmitLike();
+                if (el) {
+                  console.log("Submitting form via:", el);
+                  try {
+                    const form = el.closest && el.closest("form");
+                    if (form && typeof form.requestSubmit === "function") {
+                      if (el.tagName && el.tagName.toLowerCase() === "button") {
+                        form.requestSubmit(el);
+                      } else {
+                        form.requestSubmit();
+                      }
+                    } else {
+                      realClick(el);
+                    }
+                  } catch (_) {
+                    realClick(el);
+                  }
+                } else if (tries < maxAttempts) {
+                  tries++;
+                  setTimeout(tick, delay);
+                } else {
+                  console.log(
+                    "Submit/continue button not found after retries."
+                  );
+                }
+              };
+              setTimeout(tick, delay);
+            }
+
+            // Allow validations/bindings to react, then try repeatedly
+            attemptSubmit(12, 250);
           },
           args: [message.data],
         });
