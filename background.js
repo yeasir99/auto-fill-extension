@@ -1130,7 +1130,57 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               console.warn("âš ï¸ Phone input not found");
             }
 
-            // Do not auto-click; user submits manually
+            // Amazon KDP phone form: select country, type phone, auto-submit
+            try {
+              const form = document.querySelector("form.cvf-widget-form");
+              const cc =
+                document.getElementById("cvf_phone_cc_native") ||
+                document.querySelector('select[name="cvf_phone_cc"]');
+              if (cc) {
+                const wantCode = (countryCode || "").toLowerCase();
+                const wantName = (country || "").toLowerCase();
+                const opts = Array.from(cc.options || []);
+                let match = opts.find(
+                  (o) => (o.value || "").toLowerCase() === wantCode
+                );
+                if (!match && wantName) {
+                  match = opts.find((o) =>
+                    (o.textContent || "").toLowerCase().includes(wantName)
+                  );
+                }
+                if (match) {
+                  cc.value = match.value;
+                  fire(cc, "input");
+                  fire(cc, "change");
+                }
+              }
+              const cvfPhone =
+                document.getElementById("cvfPhoneNumber") ||
+                document.querySelector('input[name="cvf_phone_num"]');
+              if (cvfPhone && number) {
+                await typeInto(cvfPhone, number);
+              }
+              setTimeout(() => {
+                try {
+                  const submit =
+                    (form || document).querySelector(
+                      'input[name="cvf_action"][value="collect"]'
+                    ) || document.getElementById("continue");
+                  if (!submit) return;
+                  const f = submit.closest && submit.closest("form");
+                  if (f && typeof f.requestSubmit === "function") {
+                    if (
+                      submit.tagName &&
+                      submit.tagName.toLowerCase() === "button"
+                    )
+                      f.requestSubmit(submit);
+                    else f.requestSubmit();
+                  } else {
+                    submit.click();
+                  }
+                } catch (_) {}
+              }, 300);
+            } catch (_) {}
           },
           args: [data],
         });
