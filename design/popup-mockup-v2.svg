@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="660" viewBox="0 0 360 660">
+  <defs>
+    <linearGradient id="g-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2f7"/>
+    </linearGradient>
+    <linearGradient id="g-primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="g-accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <style>
+      .bg { fill: url(#g-bg); }
+      .header { fill: url(#g-primary); }
+      .title { font: 700 16px 'Inter', system-ui, -apple-system, Segoe UI, Arial; fill: #fff; }
+      .subtitle { font: 500 11px 'Inter', system-ui, -apple-system, Segoe UI, Arial; fill: rgba(255,255,255,.9); }
+      .card { fill: #fff; stroke: #e6ebf2; rx: 14; }
+      .card-title { font: 600 13px 'Inter', system-ui; fill: #0f172a; }
+      .meta { font: 12px 'Inter', system-ui; fill: #64748b; }
+      .pill { fill: #f1f5ff; stroke: #e1e8ff; rx: 999; }
+      .pill-text { font: 600 11px 'Inter', system-ui; fill: #1e293b; text-anchor: middle; dominant-baseline: middle; }
+      .input { fill: #f8fafc; stroke: #e5e7eb; rx: 10; }
+      .btn { rx: 999; }
+      .btn-primary { fill: url(#g-primary); }
+      .btn-secondary { fill: #eef2ff; stroke: #dbe4ff; }
+      .btn-ghost { fill: #ffffff; stroke: #e5e7eb; }
+      .btn-text-primary { font: 700 13px 'Inter', system-ui; fill: #fff; text-anchor: middle; dominant-baseline: middle; }
+      .btn-text-secondary { font: 700 13px 'Inter', system-ui; fill: #1f2937; text-anchor: middle; dominant-baseline: middle; }
+      .list-item { fill: #fbfcff; stroke: #eef2ff; rx: 12; }
+      .chip { fill: #ecfdf5; stroke: #bbf7d0; rx: 999; }
+      .chip-text { font: 600 11px 'Inter', system-ui; fill: #065f46; text-anchor: middle; dominant-baseline: middle; }
+      .toast { fill: #111827; opacity: .94; rx: 12; }
+      .toast-text { font: 12px 'Inter', system-ui; fill: #f9fafb; }
+      .icon-w { fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-d { fill: none; stroke: #64748b; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg" x="0" y="0" width="360" height="660"/>
+
+  <!-- Header with toolbar -->
+  <g>
+    <rect class="header" x="0" y="0" width="360" height="64"/>
+    <text x="20" y="26" class="title">AutoForm Filler</text>
+    <text x="20" y="44" class="subtitle">Streamlined • Modern</text>
+    <!-- Right icons: theme, settings, logout -->
+    <g transform="translate(360,0)">
+      <g transform="translate(-104,16)">
+        <rect class="btn-ghost" x="0" y="0" width="32" height="32" rx="8"/>
+        <path class="icon-d" d="M8 6a6 6 0 108 8 7 7 0 01-8-8z" transform="translate(8,8)"/>
+      </g>
+      <g transform="translate(-68,16)">
+        <rect class="btn-ghost" x="0" y="0" width="32" height="32" rx="8"/>
+        <path class="icon-d" d="M6 10h12M6 14h8M6 6h12" transform="translate(7,7)"/>
+      </g>
+      <g transform="translate(-32,16)">
+        <rect class="btn-ghost" x="0" y="0" width="32" height="32" rx="8"/>
+        <path class="icon-d" d="M10 8h6m0 0V6m0 2v2m0 0h-6M18 14a7 7 0 11-14 0 7 7 0 0114 0z" transform="translate(6,6)"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Segmented control -->
+  <g transform="translate(16,76)">
+    <rect class="card" x="0" y="0" width="328" height="44"/>
+    <g transform="translate(8,8)">
+      <rect class="btn-secondary btn" x="0" y="0" width="156" height="28"/>
+      <text x="78" y="18" class="btn-text-secondary">Data</text>
+      <rect class="btn-primary btn" x="164" y="0" width="156" height="28"/>
+      <text x="242" y="18" class="btn-text-primary">Phone &amp; OTP</text>
+    </g>
+  </g>
+
+  <!-- Data card -->
+  <g transform="translate(16,132)">
+    <rect class="card" x="0" y="0" width="328" height="248"/>
+    <text x="16" y="26" class="card-title">Data Fill</text>
+
+    <!-- Search + refresh -->
+    <rect class="input" x="16" y="36" width="248" height="36"/>
+    <text class="meta" x="28" y="59">Search email…</text>
+    <g transform="translate(272,38)">
+      <rect class="btn-ghost" x="0" y="0" width="40" height="32" rx="8"/>
+      <path class="icon-d" d="M12 4v6h6M17 3a8 8 0 11-6 14" transform="translate(7,6)"/>
+    </g>
+
+    <!-- List (two items + skeleton) -->
+    <g transform="translate(16,84)">
+      <rect class="list-item" x="0" y="0" width="296" height="44"/>
+      <text class="meta" x="12" y="26">Email: mika@example.com</text>
+      <rect class="list-item" x="0" y="54" width="296" height="44"/>
+      <text class="meta" x="12" y="80">Email: josh@example.com</text>
+      <!-- skeleton -->
+      <rect fill="#f1f5f9" x="0" y="108" width="296" height="44" rx="12"/>
+    </g>
+
+    <!-- Actions -->
+    <g transform="translate(16,200)">
+      <rect class="btn btn-primary" x="0" y="0" width="184" height="36"/>
+      <text class="btn-text-primary" x="92" y="22">Fill Selected</text>
+      <rect class="btn btn-secondary" x="196" y="0" width="116" height="36"/>
+      <text class="btn-text-secondary" x="254" y="22">Clear</text>
+    </g>
+  </g>
+
+  <!-- Phone & OTP card -->
+  <g transform="translate(16,392)">
+    <rect class="card" x="0" y="0" width="328" height="220"/>
+    <text x="16" y="26" class="card-title">Phone &amp; OTP</text>
+
+    <!-- Steps chips -->
+    <g transform="translate(16,36)">
+      <rect class="pill" x="0" y="0" width="72" height="24"/>
+      <text class="pill-text" x="36" y="16">1 Number</text>
+      <rect class="pill" x="82" y="0" width="86" height="24"/>
+      <text class="pill-text" x="125" y="16">2 Fill Phone</text>
+      <rect class="pill" x="176" y="0" width="60" height="24"/>
+      <text class="pill-text" x="206" y="16">3 Code</text>
+      <rect class="pill" x="242" y="0" width="62" height="24"/>
+      <text class="pill-text" x="273" y="16">4 Verify</text>
+    </g>
+
+    <!-- Number panel -->
+    <g transform="translate(16,68)">
+      <rect class="input" x="0" y="0" width="296" height="38"/>
+      <text class="meta" x="12" y="24">+1 • 555‑123‑4567 • saved</text>
+      <g transform="translate(260,6)">
+        <rect class="btn-ghost" x="0" y="0" width="28" height="26" rx="7"/>
+        <path class="icon-d" d="M6 6h8v8H6zM10 10h8v8h-8z" transform="translate(5,5)"/>
+      </g>
+    </g>
+
+    <!-- CTA buttons -->
+    <g transform="translate(16,114)">
+      <rect class="btn btn-primary" x="0" y="0" width="296" height="36"/>
+      <text class="btn-text-primary" x="148" y="22">Get Number</text>
+
+      <rect class="btn btn-primary" x="0" y="46" width="296" height="36"/>
+      <text class="btn-text-primary" x="148" y="68">Fill Phone</text>
+
+      <rect class="btn btn-ghost" x="0" y="92" width="296" height="36" rx="12"/>
+      <text class="btn-text-secondary" x="148" y="114">Get Code • Fill Code</text>
+    </g>
+  </g>
+
+  <!-- Floating success toast -->
+  <g transform="translate(16,612)">
+    <rect class="toast" x="0" y="0" width="328" height="36"/>
+    <text class="toast-text" x="12" y="22">Selected mika@example.com — ready to fill</text>
+  </g>
+</svg>

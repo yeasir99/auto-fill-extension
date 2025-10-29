@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="620" viewBox="0 0 360 620">
+  <defs>
+    <style>
+      .bg { fill: #f6f7fb; }
+      .card { fill: #ffffff; stroke: #e7eaf0; stroke-width: 1; rx: 12; }
+      .header { fill: #0d6efd; }
+      .title { font: 600 16px/1.2 'Segoe UI', Arial, sans-serif; fill: #ffffff; }
+      .subtitle { font: 500 11px/1 'Segoe UI', Arial, sans-serif; fill: rgba(255,255,255,0.9); }
+      .label { font: 600 13px/1.2 'Segoe UI', Arial, sans-serif; fill: #0b1220; }
+      .meta { font: 12px 'Segoe UI', Arial, sans-serif; fill: #6b7280; }
+      .input { fill: #f3f4f6; stroke: #e5e7eb; rx: 8; }
+      .btn-primary { fill: #0d6efd; }
+      .btn-secondary { fill: #eef2ff; stroke: #dbe4ff; }
+      .btn-text-primary { font: 600 13px 'Segoe UI', Arial, sans-serif; fill: #ffffff; text-anchor: middle; dominant-baseline: middle; }
+      .btn-text-secondary { font: 600 13px 'Segoe UI', Arial, sans-serif; fill: #1f2a44; text-anchor: middle; dominant-baseline: middle; }
+      .chip { fill: #eef2ff; stroke: #dbe4ff; rx: 999; }
+      .chip-text { font: 600 11px 'Segoe UI', Arial, sans-serif; fill: #1f2a44; text-anchor: middle; dominant-baseline: middle; }
+      .list-item { fill: #fafbff; stroke: #eef2ff; rx: 10; }
+      .toast { fill: #ecfdf5; stroke: #10b981; rx: 10; }
+      .toast-text { font: 12px 'Segoe UI', Arial, sans-serif; fill: #065f46; }
+      .icon { fill: none; stroke: #ffffff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .icon-dark { fill: none; stroke: #6b7280; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg" x="0" y="0" width="360" height="620" />
+
+  <!-- Header -->
+  <rect class="header" x="0" y="0" width="360" height="56" />
+  <circle cx="24" cy="28" r="10" fill="#ffffff" opacity="0.2" />
+  <text x="44" y="24" class="title">AutoForm Filler</text>
+  <text x="44" y="42" class="subtitle">Modern popup • Local</text>
+  <!-- Logout icon -->
+  <g transform="translate(320,18)">
+    <circle cx="12" cy="12" r="12" fill="rgba(255,255,255,0.15)" />
+    <path class="icon" d="M9 8h4m0 0V6m0 2v2m0 0H9m7 4a7 7 0 10-14 0 7 7 0 0014 0z" />
+  </g>
+
+  <!-- Card: Data Fill -->
+  <g transform="translate(16,72)">
+    <rect class="card" x="0" y="0" width="328" height="238" />
+    <text x="16" y="28" class="label">Data Fill</text>
+
+    <!-- Search input -->
+    <rect class="input" x="16" y="40" width="240" height="34" />
+    <text x="28" y="61" class="meta">Search or filter…</text>
+    <!-- Refresh icon button -->
+    <g transform="translate(272,42)">
+      <rect x="0" y="0" width="40" height="30" rx="8" fill="#eef2ff" stroke="#dbe4ff" />
+      <path class="icon-dark" d="M22 10v6h-6M18 8a8 8 0 107 7" transform="translate(-6,-2)" />
+    </g>
+
+    <!-- List placeholder -->
+    <g transform="translate(16,84)">
+      <rect class="list-item" x="0" y="0" width="296" height="42" />
+      <text x="12" y="26" class="meta">Email: mika@example.com</text>
+
+      <rect class="list-item" x="0" y="50" width="296" height="42" />
+      <text x="12" y="76" class="meta">Email: josh@example.com</text>
+
+      <rect class="list-item" x="0" y="100" width="296" height="42" />
+      <text x="12" y="126" class="meta">Email: —</text>
+    </g>
+
+    <!-- Footer actions -->
+    <g transform="translate(16,200)">
+      <rect class="btn-primary" x="0" y="0" width="178" height="34" rx="8" />
+      <text x="89" y="18" class="btn-text-primary">Fill Selected</text>
+
+      <rect class="btn-secondary" x="188" y="0" width="108" height="34" rx="8" />
+      <text x="242" y="18" class="btn-text-secondary">Clear</text>
+    </g>
+  </g>
+
+  <!-- Card: Phone & OTP -->
+  <g transform="translate(16,324)">
+    <rect class="card" x="0" y="0" width="328" height="226" />
+    <text x="16" y="28" class="label">Phone &amp; OTP</text>
+
+    <!-- Step chips -->
+    <g transform="translate(16,40)">
+      <rect class="chip" x="0" y="0" width="78" height="26" />
+      <text x="39" y="17" class="chip-text">1 Get #</text>
+
+      <rect class="chip" x="86" y="0" width="88" height="26" />
+      <text x="130" y="17" class="chip-text">2 Fill Phone</text>
+
+      <rect class="chip" x="184" y="0" width="62" height="26" />
+      <text x="215" y="17" class="chip-text">3 Code</text>
+
+      <rect class="chip" x="252" y="0" width="60" height="26" />
+      <text x="282" y="17" class="chip-text">4 Verify</text>
+    </g>
+
+    <!-- Info panel -->
+    <g transform="translate(16,74)">
+      <rect class="input" x="0" y="0" width="296" height="36" />
+      <text x="12" y="23" class="meta">+1 • 555‑123‑4567 (saved)</text>
+      <!-- copy icon -->
+      <path class="icon-dark" d="M6 6h8v8H6zM10 10h8v8h-8z" transform="translate(252,8)" />
+    </g>
+
+    <!-- Actions -->
+    <g transform="translate(16,120)">
+      <rect class="btn-primary" x="0" y="0" width="296" height="34" rx="8" />
+      <text x="148" y="18" class="btn-text-primary">Get Number</text>
+
+      <rect class="btn-primary" x="0" y="44" width="296" height="34" rx="8" />
+      <text x="148" y="62" class="btn-text-primary">Fill Phone</text>
+
+      <rect class="btn-secondary" x="0" y="88" width="296" height="34" rx="8" />
+      <text x="148" y="106" class="btn-text-secondary">Get Code • Fill Code</text>
+    </g>
+  </g>
+
+  <!-- Toast / status -->
+  <g transform="translate(16,572)">
+    <rect class="toast" x="0" y="0" width="328" height="32" />
+    <text x="12" y="20" class="toast-text">Selected: mika@example.com • Ready to fill</text>
+  </g>
+</svg>
