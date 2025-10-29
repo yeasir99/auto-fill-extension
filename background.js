@@ -1270,15 +1270,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               fire(el, "blur");
             }
 
-            const codeInput = document.querySelector(
-              'input[name*="code"], input[id*="code"], input[placeholder*="code"]'
-            );
-            if (codeInput) {
+            // Amazon OTP form: explicit selectors + auto-submit
+            const form = document.querySelector("form.cvf-widget-form");
+            const codeInput =
+              document.getElementById("cvf-input-code") ||
+              document.querySelector('input[name="code"]');
+            if (codeInput && code) {
               await typeInto(codeInput, code);
-              console.log("Filled code:", code);
             } else {
-              console.warn("Code input not found!");
+              // Fallback generic lookup
+              const fallback = document.querySelector(
+                'input[name*="code"], input[id*="code"], input[placeholder*="code"]'
+              );
+              if (fallback && code) {
+                await typeInto(fallback, code);
+              } else {
+                console.warn("Code input not found!");
+              }
             }
+            // Auto-submit verify button
+            setTimeout(() => {
+              try {
+                const submit =
+                  (form || document).querySelector(
+                    'input[name="cvf_action"][value="code"]'
+                  ) ||
+                  document.getElementById("cvf-submit-otp-button") ||
+                  document.getElementById("continue");
+                if (!submit) return;
+                const f = submit.closest && submit.closest("form");
+                if (f && typeof f.requestSubmit === "function") {
+                  if (
+                    submit.tagName &&
+                    submit.tagName.toLowerCase() === "button"
+                  )
+                    f.requestSubmit(submit);
+                  else f.requestSubmit();
+                } else {
+                  submit.click();
+                }
+              } catch (_) {}
+            }, 300);
           },
           args: [data],
         });
