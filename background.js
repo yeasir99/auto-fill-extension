@@ -1615,23 +1615,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               if (selectAddr) { selectAddr.click(); }
             } catch (_) {}
 
-            // 6) Click Add button
-            setTimeout(() => {
-              try {
-                const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], [role="button"], .mat-button, .mat-raised-button'));
-                const addBtn = buttons.find(b => {
-                  const txt = ((b.textContent||"") + " " + (b.value||"") + " " + (b.getAttribute?.('aria-label')||"")).toLowerCase().trim();
-                  return txt === 'add' || txt.includes(' add');
-                });
-                if (!addBtn) return;
-                const form = addBtn.closest && addBtn.closest('form');
-                if (form && typeof form.requestSubmit === 'function') {
-                  if (addBtn.tagName && addBtn.tagName.toLowerCase() === 'button') form.requestSubmit(addBtn); else form.requestSubmit();
-                } else {
-                  addBtn.click();
-                }
-              } catch (_) {}
-            }, 300);
+            // Note: per request, do not click "Add" automatically.
           },
           args: [message.data],
         });
