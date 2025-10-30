@@ -1489,6 +1489,156 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
       }
 
+      if (message.type === "injectFillBank") {
+        const tabId = message.tabId || (sender.tab && sender.tab.id);
+        if (!tabId) {
+          sendResponse({ success: false, error: "No active tab ID" });
+          return;
+        }
+
+        await chrome.scripting.executeScript({
+          target: { tabId, allFrames: true },
+          func: async (bankData) => {
+            const { accNum, bicCode, dob, accountHolderName } = bankData || {};
+
+            const inputSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype,
+              "value"
+            )?.set;
+            const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+            const nextDelay = () => 20 + Math.floor(Math.random() * 41);
+
+            function fire(el, type, opts = {}) {
+              const common = { bubbles: true, cancelable: true, composed: true, ...opts };
+              let ev;
+              if (type === "input") {
+                try { ev = new InputEvent("input", common); } catch (_) { ev = new Event("input", common); }
+              } else if (["click","mousedown","mouseup","mouseover"].includes(type)) {
+                ev = new MouseEvent(type, common);
+              } else if (type.startsWith("key")) {
+                ev = new KeyboardEvent(type, { key: opts.key || "", ...common });
+              } else {
+                ev = new Event(type, common);
+              }
+              try { el.dispatchEvent(ev); } catch (_) {}
+            }
+
+            function focusAndSelect(el) {
+              try { el.focus({ preventScroll: true }); } catch (_) { try { el.focus(); } catch (_) {} }
+              try { if (typeof el.select === "function") el.select(); } catch (_) {}
+            }
+
+            async function typeInto(el, text) {
+              focusAndSelect(el);
+              if (inputSetter) inputSetter.call(el, ""); else el.value = "";
+              fire(el, "input", { data: "", inputType: "deleteContent" });
+              let current = "";
+              for (const ch of String(text ?? "")) {
+                fire(el, "keydown", { key: ch });
+                fire(el, "keypress", { key: ch });
+                try { fire(el, "beforeinput", { data: ch, inputType: "insertText" }); } catch (_) {}
+                current += ch;
+                if (inputSetter) inputSetter.call(el, current); else el.value = current;
+                fire(el, "input", { data: ch, inputType: "insertText" });
+                fire(el, "keyup", { key: ch });
+                await sleep(nextDelay());
+              }
+              fire(el, "change");
+              fire(el, "blur");
+            }
+
+            function byId(id) { try { return document.getElementById(id); } catch (_) { return null; } }
+
+            function findByLabel(substrs) {
+              const needles = (Array.isArray(substrs) ? substrs : [substrs]).map((s)=>String(s).toLowerCase());
+              const labels = Array.from(document.querySelectorAll('label, .mat-form-field-label'));
+              for (const lab of labels) {
+                const txt = (lab.textContent || "").toLowerCase();
+                if (needles.some(n => txt.includes(n))) {
+                  const forId = lab.getAttribute && lab.getAttribute('for');
+                  if (forId) {
+                    const direct = byId(forId);
+                    if (direct) return direct;
+                  }
+                  // Nearby input
+                  const input = lab.closest?.('.mat-form-field, .form-field')?.querySelector('input, textarea');
+                  if (input) return input;
+                }
+              }
+              // Fallback: search inputs whose aria-describedby or id hint includes substr
+              const inputs = Array.from(document.querySelectorAll('input, textarea'));
+              return inputs.find(i => needles.some(n =>
+                (i.id||'').toLowerCase().includes(n) ||
+                (i.getAttribute?.('aria-describedby')||'').toLowerCase().includes(n)
+              ));
+            }
+
+            // 1) Account number and confirmation (Angular Material ids in prompt)
+            try {
+              const acc1 = byId('mat-input-3') || findByLabel(['account number']);
+              if (acc1 && accNum) await typeInto(acc1, accNum);
+
+              const acc2 = byId('mat-input-4') || findByLabel(['re-enter account number','reenter account number','confirm account number']);
+              if (acc2 && accNum) await typeInto(acc2, accNum);
+            } catch (_) {}
+
+            // 2) BIC code
+            try {
+              const bic = byId('interview-bank-bic') || findByLabel(['bic code','swift']);
+              if (bic && bicCode) await typeInto(bic, bicCode);
+            } catch (_) {}
+
+            // 3) Date of Birth (best effort; only if a DOB-specific field exists)
+            try {
+              if (dob) {
+                const dobInput = findByLabel(['date of birth','dob','birth']);
+                if (dobInput) await typeInto(dobInput, dob);
+              }
+            } catch (_) {}
+
+            // 4) Account Holder Name (best effort; target a field labeled with account holder)
+            try {
+              if (accountHolderName) {
+                const holder = findByLabel(['account holder','account holder name']);
+                if (holder) await typeInto(holder, accountHolderName);
+              }
+            } catch (_) {}
+
+            // 5) Click "Select existing address" button if present
+            try {
+              const candidates = Array.from(document.querySelectorAll('button, a, [role="button"], .mat-button, .mat-raised-button, .mat-flat-button, span'));
+              const matchText = (el, kws) => {
+                const t = ((el.textContent||"") + " " + (el.value||"") + " " + (el.getAttribute?.('aria-label')||"")).toLowerCase();
+                return kws.some(k=>t.includes(k));
+              };
+              const selectAddr = candidates.find(el => matchText(el, ['select existing address','existing address','use existing address']));
+              if (selectAddr) { selectAddr.click(); }
+            } catch (_) {}
+
+            // 6) Click Add button
+            setTimeout(() => {
+              try {
+                const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], [role="button"], .mat-button, .mat-raised-button'));
+                const addBtn = buttons.find(b => {
+                  const txt = ((b.textContent||"") + " " + (b.value||"") + " " + (b.getAttribute?.('aria-label')||"")).toLowerCase().trim();
+                  return txt === 'add' || txt.includes(' add');
+                });
+                if (!addBtn) return;
+                const form = addBtn.closest && addBtn.closest('form');
+                if (form && typeof form.requestSubmit === 'function') {
+                  if (addBtn.tagName && addBtn.tagName.toLowerCase() === 'button') form.requestSubmit(addBtn); else form.requestSubmit();
+                } else {
+                  addBtn.click();
+                }
+              } catch (_) {}
+            }, 300);
+          },
+          args: [message.data],
+        });
+        sendResponse({ success: true });
+        return true;
+      }
+
       if (message.type === "logout") {
         await chrome.storage.local.remove(["token", "apiBase", "selectedData"]);
         sendResponse({ success: true });

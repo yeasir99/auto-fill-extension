@@ -302,6 +302,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
+  // FILL BANK
+  document.getElementById("btnFillBank")?.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "getSelection" }, (resp) => {
+      const sel = resp?.data || {};
+      if (!sel) {
+        setStatus("No data selected");
+        return;
+      }
+      // Prepare fields for bank form
+      let dob = sel.dob;
+      try {
+        if (dob && dob.includes("T")) {
+          const parts = dob.split("T")[0].split("-");
+          dob = `${parts[1]}/${parts[2]}/${parts[0]}`; // MM/DD/YYYY
+        }
+      } catch (_) {}
+
+      const payload = {
+        accNum: sel.accNum || sel.accountNumber || "",
+        bicCode: sel.bicCode || sel.swift || "",
+        accountHolderName: sel.accountHolderName || sel.fullName || sel.name || "",
+        dob: dob || sel.dob || "",
+      };
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs?.[0]?.id;
+        if (!tabId) {
+          setStatus("No active tab");
+          return;
+        }
+        chrome.runtime.sendMessage(
+          { type: "injectFillBank", tabId, data: payload },
+          (r) => {
+            setStatus(r?.success ? "Bank form filled" : `Fill bank failed: ${r?.error || ""}`);
+          }
+        );
+      });
+    });
+  });
+
   document.getElementById("btnGetCode").addEventListener("click", async () => {
     const { token, id } = await chrome.storage.local.get(["token", "id"]);
 
